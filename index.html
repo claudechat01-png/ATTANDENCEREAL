@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finishing Department — Attendance Register</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf-autotable.min.js"></script>
+<style>
+  :root{
+    --paper:#F4F0E4;
+    --paper-line:#DCD5C1;
+    --ink:#1E2A38;
+    --ink-soft:#4A5A6A;
+    --stamp-red:#A6362C;
+    --brass:#A9843F;
+    --card:#FFFDF7;
+    --ok:#2E5F3E;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    background-image:
+      repeating-linear-gradient(var(--paper-line) 0 1px, transparent 1px 34px);
+    color:var(--ink);
+    font-family:'Courier New', 'Courier Prime', monospace;
+    padding:0 0 60px 0;
+  }
+  .band{
+    background:var(--ink);
+    color:var(--paper);
+    padding:22px 24px 26px;
+    position:relative;
+    overflow:hidden;
+  }
+  .band h1{
+    margin:0;
+    font-size:22px;
+    letter-spacing:2px;
+    font-weight:700;
+    text-transform:uppercase;
+  }
+  .band .sub{
+    margin-top:4px;
+    font-size:12px;
+    color:#C9D2DB;
+    letter-spacing:1px;
+  }
+  .stamp{
+    position:absolute;
+    right:24px;
+    top:14px;
+    border:3px solid var(--stamp-red);
+    color:var(--stamp-red);
+    padding:6px 14px;
+    font-weight:700;
+    letter-spacing:2px;
+    font-size:13px;
+    transform:rotate(-8deg);
+    border-radius:6px;
+    opacity:0.9;
+    background:rgba(166,54,44,0.05);
+  }
+  .wrap{ max-width:1180px; margin:0 auto; padding:20px 20px 0; }
+
+  .toprow{ display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; margin-bottom:18px; }
+  .field label{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--ink-soft); margin-bottom:4px; }
+  .field input, .field select{
+    font-family:inherit; font-size:14px; padding:8px 10px;
+    border:1px solid var(--ink); background:var(--card); color:var(--ink); border-radius:3px;
+  }
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--paper-line);
+    border-left:4px solid var(--brass);
+    border-radius:4px;
+    padding:18px 20px;
+    margin-bottom:22px;
+    box-shadow:0 1px 3px rgba(30,42,56,0.06);
+  }
+  .card h2{
+    margin:0 0 14px;
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    color:var(--stamp-red);
+    border-bottom:1px dashed var(--paper-line);
+    padding-bottom:8px;
+  }
+
+  .form-grid{ display:grid; grid-template-columns:1.6fr 0.9fr 1.6fr 1fr auto; gap:10px; align-items:end; }
+  @media (max-width:900px){ .form-grid{ grid-template-columns:1fr 1fr; } }
+
+  .genderpick{ display:flex; gap:6px; }
+  .genderpick button{
+    flex:1; padding:8px; border:1px solid var(--ink); background:var(--card);
+    cursor:pointer; font-family:inherit; font-weight:700; border-radius:3px; font-size:13px;
+  }
+  .genderpick button.active[data-g="M"]{ background:#1E2A38; color:#fff; }
+  .genderpick button.active[data-g="F"]{ background:var(--stamp-red); color:#fff; }
+
+  .addbtn{
+    background:var(--stamp-red); color:#fff; border:none; padding:10px 18px;
+    font-family:inherit; font-weight:700; letter-spacing:1px; border-radius:3px; cursor:pointer;
+    text-transform:uppercase; font-size:13px;
+  }
+  .addbtn:hover{ background:#8c2c24; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th, td{ padding:8px 8px; border-bottom:1px solid var(--paper-line); text-align:left; }
+  th{ text-transform:uppercase; font-size:10.5px; letter-spacing:0.8px; color:var(--ink-soft); }
+  tr.section-head td{
+    background:#EDE7D5; font-weight:700; color:var(--ink); letter-spacing:0.5px; padding-top:10px;
+  }
+  .pill{ display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; }
+  .pill.M{ background:#1E2A38; color:#fff; }
+  .pill.F{ background:var(--stamp-red); color:#fff; }
+
+  .status-tag{ display:inline-block; padding:3px 9px; border-radius:10px; font-size:11px; font-weight:700; border:1px solid; }
+  .status-tag.in{ background:#e4efe6; color:var(--ok); border-color:var(--ok); }
+  .status-tag.out{ background:#f6e6e4; color:var(--stamp-red); border-color:var(--stamp-red); }
+
+  .rowbtn{
+    border:1px solid var(--ink); background:var(--card); color:var(--ink);
+    padding:4px 10px; border-radius:3px; font-family:inherit; font-size:11px; cursor:pointer;
+    text-transform:uppercase; letter-spacing:0.5px; margin-right:4px;
+  }
+  .rowbtn.outbtn{ border-color:var(--stamp-red); color:var(--stamp-red); }
+  .rowbtn.outbtn:hover{ background:var(--stamp-red); color:#fff; }
+  .rowbtn.undobtn{ border-color:var(--brass); color:var(--brass); }
+  .rowbtn.undobtn:hover{ background:var(--brass); color:#fff; }
+
+  .inline-edit{ display:flex; gap:6px; align-items:center; }
+  .inline-edit input{ padding:5px 6px; font-family:inherit; font-size:12px; border:1px solid var(--ink); border-radius:3px; }
+  .inline-edit button{ padding:5px 9px; font-family:inherit; font-size:11px; border-radius:3px; cursor:pointer; border:1px solid var(--ok); background:var(--ok); color:#fff; }
+
+  .del{ background:none; border:none; color:var(--stamp-red); cursor:pointer; font-size:15px; }
+
+  .report-grid{ width:100%; border-collapse:collapse; font-size:13px; }
+  .report-grid th{ background:var(--ink); color:var(--paper); padding:9px 8px; text-transform:uppercase; font-size:10.5px; letter-spacing:0.8px; }
+  .report-grid td{ padding:8px 8px; border-bottom:1px solid var(--paper-line); }
+  .report-grid tr.grand td{ font-weight:700; background:#EDE7D5; border-top:2px solid var(--ink); }
+
+  .actions{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .ghostbtn{
+    background:transparent; border:1px solid var(--ink); color:var(--ink); padding:8px 14px;
+    font-family:inherit; border-radius:3px; cursor:pointer; font-size:12px; letter-spacing:1px; text-transform:uppercase;
+  }
+  .ghostbtn:hover{ background:var(--ink); color:#fff; }
+  .waBtn{ background:#25D366; border-color:#1DA851; color:#fff; }
+  .waBtn:hover{ background:#1DA851; color:#fff; }
+  .pdfBtn{ background:var(--brass); border-color:var(--brass); color:#fff; }
+  .pdfBtn:hover{ background:#8f6f32; color:#fff; }
+  .admin-only.is-hidden{ display:none !important; }
+  .empty{ padding:20px; text-align:center; color:var(--ink-soft); font-style:italic; }
+  .note{ font-size:11px; color:var(--ink-soft); margin-top:8px; }
+</style>
+</head>
+<body>
+
+<div id="authOverlay" style="position:fixed; inset:0; background:var(--ink); display:flex; align-items:center; justify-content:center; z-index:999; padding:20px;">
+  <div style="background:var(--card); border-radius:6px; padding:26px 28px; max-width:360px; width:100%; box-shadow:0 8px 30px rgba(0,0,0,0.4);">
+    <div style="text-align:center; margin-bottom:16px;">
+      <div style="font-size:16px; font-weight:700; letter-spacing:1px; color:var(--ink);">FINISHING DEPARTMENT</div>
+      <div style="font-size:11px; color:var(--ink-soft); margin-top:2px;">Attendance Register — Secure Login</div>
+    </div>
+
+    <div id="setupBlock" style="display:none;">
+      <div class="field" style="margin-bottom:10px;">
+        <label>Your Name (Admin)</label>
+        <input type="text" id="setupUsername" placeholder="e.g. Shivendra">
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Set Password</label>
+        <input type="password" id="setupAdminPass" placeholder="Password">
+      </div>
+      <button class="addbtn" id="setupSaveBtn" style="width:100%;">Create Admin Account & Continue</button>
+      <div class="note" style="text-align:center;">Ye pehla account Admin hoga — baad me isi se aur users (Admin/User) add kar sakte ho.</div>
+    </div>
+
+    <div id="loginBlock" style="display:none;">
+      <div class="field" style="margin-bottom:10px;">
+        <label>Username</label>
+        <input type="text" id="loginUsernameInput" placeholder="Username" autocomplete="off">
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Password</label>
+        <input type="password" id="loginPassInput" placeholder="Password">
+      </div>
+      <div id="loginError" style="display:none; color:var(--stamp-red); font-size:12px; margin-bottom:8px;">Galat username ya password, dobara try karein.</div>
+      <button class="addbtn" id="loginBtn" style="width:100%;">Login</button>
+    </div>
+  </div>
+</div>
+
+<div id="appContent" style="display:none;">
+
+<div class="band">
+  <h1>Finishing Department</h1>
+  <div class="sub">Daily Labour Attendance Register — Naam-wise IN / OUT tracking (8:00 AM – 8:00 PM)</div>
+  <div class="stamp">RECEIVED</div>
+  <div style="position:absolute; right:24px; bottom:10px; font-size:11px; color:#C9D2DB;">
+    Logged in as <strong id="roleLabel"></strong> &nbsp;·&nbsp;
+    <a href="#" id="logoutLink" style="color:#C9D2DB; text-decoration:underline;">Logout</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="toprow">
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="dateInput">
+    </div>
+    <div class="field" style="flex:1; min-width:160px;">
+      <label>Register Status</label>
+      <div id="dayCount" style="font-size:13px; padding-top:6px;">Loading…</div>
+    </div>
+  </div>
+
+  <div class="card admin-only" id="addSectionCard">
+    <h2>+ Add New Section / Department</h2>
+    <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+      <div class="field" style="flex:1; min-width:220px;">
+        <label>New Section Name</label>
+        <input type="text" id="newSectionInput" placeholder="e.g. Packing">
+      </div>
+      <button class="addbtn" id="addSectionBtn" style="background:var(--brass); border-color:var(--brass);">+ Add Section</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Mark IN — Add Worker</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="nameInput" list="employeeDatalist" placeholder="Worker ka naam" autocomplete="off">
+        <datalist id="employeeDatalist"></datalist>
+      </div>
+      <div class="field">
+        <label>Gender</label>
+        <div class="genderpick">
+          <button type="button" data-g="M" class="active">M</button>
+          <button type="button" data-g="F">F</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Section / Department</label>
+        <select id="sectionInput"></select>
+      </div>
+      <div class="field">
+        <label>IN Time</label>
+        <input type="time" id="inTimeInput" value="08:00">
+      </div>
+      <div class="field">
+        <button class="addbtn" id="addBtn">✓ Mark IN</button>
+      </div>
+    </div>
+    <div class="note">Naam type karte hi maujooda employees ka suggestion aayega (kisi bhi section ke). Section har din alag select kar sakte ho, kyunki worker kisi bhi department me kaam kar sakta hai. Naya naam apne aap master list me save ho jayega.</div>
+  </div>
+
+  <div class="card">
+    <h2>Employee Master List <span id="empCount" style="font-size:11px; color:var(--ink-soft); text-transform:none; letter-spacing:0;"></span></h2>
+
+    <div class="actions" style="margin-top:0; margin-bottom:14px;">
+      <button class="ghostbtn pdfBtn admin-only" id="openEmpFormBtn">+ Add Employee (Full Details)</button>
+    </div>
+
+    <div id="empFormCard" style="display:none; border:1px dashed var(--brass); border-radius:4px; padding:14px; margin-bottom:16px; background:#FBF8EF;">
+      <input type="hidden" id="empFormId">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr; margin-bottom:10px;">
+        <div class="field">
+          <label>Name</label>
+          <input type="text" id="empName" placeholder="Employee ka naam">
+        </div>
+        <div class="field">
+          <label>Gender</label>
+          <div class="genderpick">
+            <button type="button" data-g="M" class="active" id="empGenderM">M</button>
+            <button type="button" data-g="F" id="empGenderF">F</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-grid" style="grid-template-columns:1fr 1fr; margin-bottom:10px;">
+        <div class="field">
+          <label>Profile Photo</label>
+          <input type="file" id="empPhotoInput" accept="image/*">
+          <div style="margin-top:6px;"><img id="empPhotoPreview" style="display:none; width:70px; height:70px; object-fit:cover; border-radius:4px; border:1px solid var(--paper-line);"></div>
+        </div>
+        <div class="field">
+          <label>Day Salary</label>
+          <div style="display:flex; gap:6px;">
+            <input type="number" id="empSalary" placeholder="0" style="flex:1;">
+            <select id="empCurrency" style="width:90px;">
+              <option value="NPR">NPR</option>
+              <option value="INR">INR</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-grid" style="grid-template-columns:1fr 1fr; margin-bottom:10px;">
+        <div class="field">
+          <label>ID Type</label>
+          <select id="empIdType">
+            <option value="">-- Select --</option>
+            <option value="Aadhar">Aadhar Card</option>
+            <option value="Voter ID">Voter ID</option>
+            <option value="Embassy ID">Embassy ID</option>
+            <option value="Nagrikta">Nagrikta (Citizenship)</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>ID Number</label>
+          <input type="text" id="empIdNumber" placeholder="ID number">
+        </div>
+      </div>
+
+      <div class="form-grid" style="grid-template-columns:1fr; margin-bottom:12px;">
+        <div class="field">
+          <label>ID Photo / Scan</label>
+          <input type="file" id="empIdPhotoInput" accept="image/*">
+          <div style="margin-top:6px;"><img id="empIdPhotoPreview" style="display:none; width:120px; height:80px; object-fit:cover; border-radius:4px; border:1px solid var(--paper-line);"></div>
+        </div>
+      </div>
+
+      <div class="actions" style="margin-top:0;">
+        <button class="addbtn" id="empSaveBtn">Save Employee</button>
+        <button class="ghostbtn" id="empCancelBtn">Cancel</button>
+      </div>
+    </div>
+
+    <div id="employeeListHolder"><div class="empty">Loading…</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Today's Attendance</h2>
+    <div id="tableHolder"><div class="empty">Loading…</div></div>
+    <div class="note">Default duty window 8:00 AM – 8:00 PM hai. Jo abhi tak "OUT" nahi hua, uski hours 8:00 PM tak automatically count hongi. Jaise hi koi worker chala jaye, uske row me "Mark OUT" dabakar time confirm kar dein.</div>
+    <div class="actions">
+      <button class="ghostbtn pdfBtn" id="pdfBtn">⬇ Download PDF (Name-wise)</button>
+      <button class="ghostbtn waBtn" id="waBtn">↗ Share on WhatsApp</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Department-wise Report</h2>
+    <table class="report-grid" id="reportTable">
+      <thead><tr><th>S.No</th><th>Section / Department</th><th>Male</th><th>Female</th><th>Total</th><th>Man-Hours</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="actions">
+      <button class="ghostbtn" id="printBtn">Print Report</button>
+      <button class="ghostbtn" id="csvBtn">Download CSV</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Weekly Report — Employee-wise / Section-wise / Date-wise</h2>
+    <div style="display:flex; gap:14px; align-items:end; flex-wrap:wrap; margin-bottom:16px;">
+      <div class="field">
+        <label>From Date</label>
+        <input type="date" id="weekStartInput">
+      </div>
+      <div class="field">
+        <label>To Date</label>
+        <input type="date" id="weekEndInput">
+      </div>
+      <button class="addbtn" id="genWeeklyBtn">Generate Report</button>
+    </div>
+
+    <div id="weeklyReportHolder">
+      <div class="empty">Date range chuniye aur "Generate Report" dabaiye.</div>
+    </div>
+
+    <div class="actions" id="weeklyActions" style="display:none;">
+      <button class="ghostbtn pdfBtn" id="weeklyPdfBtn">⬇ Download Weekly PDF</button>
+      <button class="ghostbtn waBtn" id="weeklyWaBtn">↗ Share on WhatsApp</button>
+    </div>
+  </div>
+
+  <div class="card admin-only" id="usersCard">
+    <h2>Manage Users <span id="userCount" style="font-size:11px; color:var(--ink-soft); text-transform:none; letter-spacing:0;"></span></h2>
+
+    <div id="userFormCard" style="display:none; border:1px dashed var(--brass); border-radius:4px; padding:14px; margin-bottom:16px; background:#FBF8EF;">
+      <input type="hidden" id="userFormId">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr auto; margin-bottom:4px;">
+        <div class="field">
+          <label>Username</label>
+          <input type="text" id="userFormUsername" placeholder="Naam">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="userFormPassword" placeholder="Naya password">
+        </div>
+        <div class="field">
+          <label>Role</label>
+          <select id="userFormRole">
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="field">
+          <button class="addbtn" id="userSaveBtn">Save</button>
+        </div>
+      </div>
+      <div class="note" style="margin-top:0;">Edit karte waqt password khali chodo agar badalna nahi hai.</div>
+    </div>
+
+    <div class="actions" style="margin-top:0; margin-bottom:14px;">
+      <button class="ghostbtn pdfBtn" id="openUserFormBtn">+ Add User</button>
+    </div>
+
+    <div id="userListHolder"><div class="empty">Loading…</div></div>
+  </div>
+
+  <div class="card admin-only" id="backupCard">
+    <h2>Data Backup &amp; Restore</h2>
+    <div class="note" style="margin-top:0; margin-bottom:12px;">Poora data (saari dates ki attendance, Employee Master, Sections) ek file me save kar sakte ho — kabhi bhi phone kho jaye ya browser ka data clear ho jaye, to isi file se wapas restore kar sakte ho. Backup file ko safe jagah (Google Drive, email, pendrive) rakhein.</div>
+    <div class="actions" style="margin-top:0;">
+      <button class="ghostbtn pdfBtn" id="backupBtn">⬇ Download Backup</button>
+      <button class="ghostbtn" id="restoreBtn">⬆ Restore from Backup</button>
+      <input type="file" id="restoreFileInput" accept=".json" style="display:none;">
+    </div>
+  </div>
+
+</div>
+
+<div style="text-align:center; padding:24px 20px 10px; font-size:11px; color:var(--ink-soft); letter-spacing:0.5px;">
+  Created By <strong>Shivendra</strong> with AI &nbsp;|&nbsp; Cont. No. +977 9705397800
+</div>
+
+</div>
+
+<script>
+// Local-storage backed shim so this app works standalone (outside Claude artifact host)
+window.storage = {
+  async get(key, shared){
+    const v = localStorage.getItem(key);
+    if(v === null) throw new Error("not found");
+    return { key, value: v, shared: !!shared };
+  },
+  async set(key, value, shared){
+    localStorage.setItem(key, value);
+    return { key, value, shared: !!shared };
+  },
+  async delete(key, shared){
+    localStorage.removeItem(key);
+    return { key, deleted: true, shared: !!shared };
+  },
+  async list(prefix, shared){
+    const keys = Object.keys(localStorage).filter(k => !prefix || k.startsWith(prefix));
+    return { keys, prefix, shared: !!shared };
+  }
+};
+</script>
+<script>
+const DEFAULT_SECTIONS = [
+  "L DD Saw","Lepa","WBS / Sanding Machine","H DD Saw","Table Finishing",
+  "Table Grader","Dipping","Stamping - Stamp","Stamping - Paper",
+  "Stamping - Side Finishing","Stamping - Pani","Stamping Grader","Thickness Grading"
+];
+let SECTIONS = [...DEFAULT_SECTIONS];
+let currentRole = null; // 'admin' | 'user'
+let currentUsername = null;
+let users = []; // [{id, username, passwordHash, role}]
+
+function simpleHash(str){
+  let hash = 0;
+  for(let i = 0; i < str.length; i++){ hash = (hash * 31 + str.charCodeAt(i)) >>> 0; }
+  return hash.toString(16);
+}
+
+async function loadUsers(){
+  try{
+    const res = await window.storage.get("user-accounts");
+    users = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){
+    users = [];
+  }
+}
+
+async function saveUsers(){
+  try{
+    await window.storage.set("user-accounts", JSON.stringify(users));
+  }catch(e){
+    console.error("Storage error", e);
+  }
+}
+
+function findUserByUsername(name){
+  return users.find(u => u.username.toLowerCase() === name.trim().toLowerCase());
+}
+
+function applyRoleVisibility(){
+  document.querySelectorAll(".admin-only").forEach(el => {
+    el.classList.toggle("is-hidden", currentRole !== "admin");
+  });
+  const label = $("roleLabel");
+  if(label) label.textContent = currentUsername ? `${currentUsername} (${currentRole === "admin" ? "Admin" : "User"})` : "";
+}
+
+async function unlockApp(){
+  $("authOverlay").style.display = "none";
+  $("appContent").style.display = "block";
+  applyRoleVisibility();
+  await loadCustomSections();
+  await loadEmployees();
+  fillSectionDropdown();
+  $("dateInput").value = currentDate;
+  await loadEntries(currentDate);
+  $("weekEndInput").value = currentDate;
+  $("weekStartInput").value = dateStrAddDays(currentDate, -6);
+  if(currentRole === "admin") renderUserList();
+}
+
+async function initAuth(){
+  await loadUsers();
+  if(users.length === 0){
+    $("setupBlock").style.display = "block";
+    $("loginBlock").style.display = "none";
+    return;
+  }
+  $("setupBlock").style.display = "none";
+  $("loginBlock").style.display = "block";
+}
+const DEFAULT_OUT = "20:00"; // 8:00 PM ceiling if no OUT marked
+
+let currentGender = "M";
+let currentDate = new Date().toISOString().slice(0,10);
+let entries = [];
+let editingOutId = null; // row currently showing the OUT time picker
+
+const $ = (id) => document.getElementById(id);
+
+function todayKey(date){ return `entries:${date}`; }
+
+let employees = []; // master list: {id, name, gender}
+
+async function loadEmployees(){
+  try{
+    const res = await window.storage.get("employees-master");
+    employees = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){
+    employees = [];
+  }
+  fillEmployeeDatalist();
+}
+
+async function saveEmployees(){
+  try{
+    await window.storage.set("employees-master", JSON.stringify(employees));
+  }catch(e){
+    console.error("Storage error", e);
+  }
+}
+
+function fillEmployeeDatalist(){
+  const dl = $("employeeDatalist");
+  if(!dl) return;
+  dl.innerHTML = employees
+    .slice()
+    .sort((a,b) => a.name.localeCompare(b.name))
+    .map(emp => `<option value="${emp.name}">`)
+    .join("");
+  renderEmployeeList();
+}
+
+function renderEmployeeList(){
+  const holder = $("employeeListHolder");
+  const countEl = $("empCount");
+  if(!holder) return;
+  if(countEl) countEl.textContent = employees.length ? `(${employees.length})` : "";
+  if(employees.length === 0){
+    holder.innerHTML = `<div class="empty">Abhi koi employee master list me nahi hai — attendance me naam add karte hi yahan aa jayega, ya "+ Add Employee" se poori detail bhi bhar sakte ho.</div>`;
+    return;
+  }
+  const isAdmin = currentRole === "admin";
+  const sorted = employees.slice().sort((a,b) => a.name.localeCompare(b.name));
+  const extraHeaders = isAdmin ? `<th>ID</th><th>Day Salary</th><th></th>` : "";
+  let html = `<table><thead><tr><th></th><th>Name</th><th>Gender</th>${extraHeaders}</tr></thead><tbody>`;
+  sorted.forEach(emp => {
+    const photoCell = emp.photo
+      ? `<img src="${emp.photo}" style="width:34px; height:34px; object-fit:cover; border-radius:50%; border:1px solid var(--paper-line);">`
+      : `<div style="width:34px; height:34px; border-radius:50%; background:#EDE7D5; display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--ink-soft);">${emp.name.charAt(0).toUpperCase()}</div>`;
+    let extraCells = "";
+    if(isAdmin){
+      const idCell = emp.idType ? `${emp.idType}${emp.idNumber ? ' — ' + emp.idNumber : ''}` : '—';
+      const salaryCell = emp.daySalary ? `${emp.daySalary} ${emp.currency || 'NPR'}` : '—';
+      extraCells = `
+      <td>${idCell}</td>
+      <td>${salaryCell}</td>
+      <td>
+        <button class="rowbtn" onclick="editEmployee('${emp.id}')">Edit</button>
+        <button class="del" onclick="deleteEmployee('${emp.id}')">✕</button>
+      </td>`;
+    }
+    html += `<tr>
+      <td>${photoCell}</td>
+      <td>${emp.name}</td>
+      <td><span class="pill ${emp.gender}">${emp.gender}</span></td>
+      ${extraCells}
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  holder.innerHTML = html;
+}
+
+async function deleteEmployee(id){
+  employees = employees.filter(e => e.id !== id);
+  await saveEmployees();
+  fillEmployeeDatalist();
+}
+
+// ---------- Employee form (add/edit with photo, ID, salary) ----------
+let empFormGender = "M";
+
+function resizeImageFile(file, maxDim){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if(width > height && width > maxDim){
+          height = Math.round(height * (maxDim / width));
+          width = maxDim;
+        } else if(height > maxDim){
+          width = Math.round(width * (maxDim / height));
+          height = maxDim;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.7));
+      };
+      img.onerror = reject;
+      img.src = ev.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function resetEmployeeForm(){
+  $("empFormId").value = "";
+  $("empName").value = "";
+  $("empSalary").value = "";
+  $("empCurrency").value = "NPR";
+  $("empIdType").value = "";
+  $("empIdNumber").value = "";
+  $("empPhotoInput").value = "";
+  $("empIdPhotoInput").value = "";
+  $("empPhotoPreview").style.display = "none";
+  $("empPhotoPreview").removeAttribute("data-photo");
+  $("empIdPhotoPreview").style.display = "none";
+  $("empIdPhotoPreview").removeAttribute("data-photo");
+  empFormGender = "M";
+  $("empGenderM").classList.add("active");
+  $("empGenderF").classList.remove("active");
+}
+
+function openEmployeeForm(){
+  $("empFormCard").style.display = "block";
+  $("empName").focus();
+}
+
+function closeEmployeeForm(){
+  $("empFormCard").style.display = "none";
+  resetEmployeeForm();
+}
+
+function editEmployee(id){
+  const emp = employees.find(e => e.id === id);
+  if(!emp) return;
+  openEmployeeForm();
+  $("empFormId").value = emp.id;
+  $("empName").value = emp.name;
+  $("empSalary").value = emp.daySalary || "";
+  $("empCurrency").value = emp.currency || "NPR";
+  $("empIdType").value = emp.idType || "";
+  $("empIdNumber").value = emp.idNumber || "";
+  empFormGender = emp.gender || "M";
+  $("empGenderM").classList.toggle("active", empFormGender === "M");
+  $("empGenderF").classList.toggle("active", empFormGender === "F");
+  if(emp.photo){
+    $("empPhotoPreview").src = emp.photo;
+    $("empPhotoPreview").style.display = "block";
+    $("empPhotoPreview").setAttribute("data-photo", emp.photo);
+  }
+  if(emp.idPhoto){
+    $("empIdPhotoPreview").src = emp.idPhoto;
+    $("empIdPhotoPreview").style.display = "block";
+    $("empIdPhotoPreview").setAttribute("data-photo", emp.idPhoto);
+  }
+}
+
+async function upsertEmployee(name, gender){
+  const existing = employees.find(e => e.name.toLowerCase() === name.toLowerCase());
+  if(existing){
+    if(existing.gender !== gender){ existing.gender = gender; await saveEmployees(); }
+    return;
+  }
+  employees.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2,6), name, gender });
+  await saveEmployees();
+  fillEmployeeDatalist();
+}
+
+function findEmployeeByName(name){
+  return employees.find(e => e.name.toLowerCase() === name.trim().toLowerCase());
+}
+
+async function loadCustomSections(){
+  try{
+    const res = await window.storage.get("custom-sections");
+    const custom = res && res.value ? JSON.parse(res.value) : [];
+    SECTIONS = [...DEFAULT_SECTIONS, ...custom.filter(c => !DEFAULT_SECTIONS.includes(c))];
+  }catch(e){
+    SECTIONS = [...DEFAULT_SECTIONS];
+  }
+}
+
+async function saveCustomSections(){
+  const custom = SECTIONS.filter(s => !DEFAULT_SECTIONS.includes(s));
+  try{
+    await window.storage.set("custom-sections", JSON.stringify(custom));
+  }catch(e){
+    console.error("Storage error", e);
+  }
+}
+
+async function addSection(){
+  const input = $("newSectionInput");
+  const name = input.value.trim();
+  if(!name) { input.focus(); return; }
+  if(SECTIONS.some(s => s.toLowerCase() === name.toLowerCase())){
+    input.value = "";
+    fillSectionDropdown();
+    $("sectionInput").value = SECTIONS.find(s => s.toLowerCase() === name.toLowerCase());
+    return;
+  }
+  SECTIONS.push(name);
+  await saveCustomSections();
+  input.value = "";
+  fillSectionDropdown();
+  $("sectionInput").value = name;
+  render();
+}
+
+function fillSectionDropdown(){
+  const sel = $("sectionInput");
+  const prev = sel.value;
+  sel.innerHTML = SECTIONS.map(s => `<option value="${s}">${s}</option>`).join("");
+  if(SECTIONS.includes(prev)) sel.value = prev;
+}
+
+function timeToDecimal(t){
+  const [h,m] = t.split(":").map(Number);
+  return h + m/60;
+}
+
+function nowTimeStr(){
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+
+function calcHours(entry){
+  const start = timeToDecimal(entry.inTime);
+  const end = entry.outTime ? timeToDecimal(entry.outTime) : timeToDecimal(DEFAULT_OUT);
+  return Math.max(0, end - start);
+}
+
+function fmtTime(t){
+  const [h,m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  return `${hh}:${String(m).padStart(2,"0")} ${ampm}`;
+}
+
+async function loadEntries(date){
+  try{
+    const res = await window.storage.get(todayKey(date));
+    entries = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){
+    entries = [];
+  }
+  editingOutId = null;
+  render();
+}
+
+async function saveEntries(){
+  try{
+    await window.storage.set(todayKey(currentDate), JSON.stringify(entries));
+  }catch(e){
+    console.error("Storage error", e);
+  }
+}
+
+function render(){
+  renderTable();
+  renderReport();
+  $("dayCount").textContent = `${entries.length} worker(s) marked for ${currentDate}`;
+}
+
+function renderTable(){
+  const holder = $("tableHolder");
+  if(entries.length === 0){
+    holder.innerHTML = `<div class="empty">Abhi tak koi entry nahi hui — upar se worker "Mark IN" karein.</div>`;
+    return;
+  }
+  const bySection = {};
+  SECTIONS.forEach(s => bySection[s] = []);
+  entries.forEach(e => { (bySection[e.section] = bySection[e.section] || []).push(e); });
+
+  let html = `<table><thead><tr>
+    <th>S.No</th><th>Name</th><th>Gender</th><th>IN</th><th>Status</th><th>Hours</th><th>Action</th><th></th>
+  </tr></thead><tbody>`;
+
+  SECTIONS.forEach(sec => {
+    const list = bySection[sec];
+    if(!list || list.length === 0) return;
+    html += `<tr class="section-head"><td colspan="8">${sec} (${list.length})</td></tr>`;
+    list.forEach((e, idx) => {
+      const hrs = calcHours(e).toFixed(1);
+      const statusCell = e.outTime
+        ? `<span class="status-tag out">OUT @ ${fmtTime(e.outTime)}</span>`
+        : `<span class="status-tag in">PRESENT</span>`;
+
+      let actionCell;
+      if(editingOutId === e.id){
+        actionCell = `<div class="inline-edit">
+            <input type="time" id="outpicker-${e.id}" value="${nowTimeStr()}">
+            <button onclick="confirmOut('${e.id}')">✓</button>
+          </div>`;
+      } else if(e.outTime){
+        actionCell = `<button class="rowbtn undobtn" onclick="undoOut('${e.id}')">Undo OUT</button>`;
+      } else {
+        actionCell = `<button class="rowbtn outbtn" onclick="startOut('${e.id}')">Mark OUT</button>`;
+      }
+
+      html += `<tr>
+        <td>${idx + 1}</td>
+        <td>${e.name}</td>
+        <td><span class="pill ${e.gender}">${e.gender}</span></td>
+        <td>${fmtTime(e.inTime)}</td>
+        <td>${statusCell}</td>
+        <td>${hrs}</td>
+        <td>${actionCell}</td>
+        <td><button class="del" onclick="deleteEntry('${e.id}')">✕</button></td>
+      </tr>`;
+    });
+  });
+
+  html += `</tbody></table>`;
+  holder.innerHTML = html;
+}
+
+function renderReport(){
+  const tbody = document.querySelector("#reportTable tbody");
+  let grand = {M:0,F:0,total:0,hours:0};
+  let rows = "";
+  let sno = 0;
+  SECTIONS.forEach(sec => {
+    const list = entries.filter(e => e.section === sec);
+    const male = list.filter(e => e.gender === "M").length;
+    const female = list.filter(e => e.gender === "F").length;
+    const hours = list.reduce((sum,e) => sum + calcHours(e), 0);
+    grand.M += male; grand.F += female; grand.total += list.length; grand.hours += hours;
+    sno += 1;
+    rows += `<tr><td>${sno}</td><td>${sec}</td><td>${male}</td><td>${female}</td><td>${list.length}</td><td>${hours.toFixed(1)}</td></tr>`;
+  });
+  rows += `<tr class="grand"><td></td><td>GRAND TOTAL</td><td>${grand.M}</td><td>${grand.F}</td><td>${grand.total}</td><td>${grand.hours.toFixed(1)}</td></tr>`;
+  tbody.innerHTML = rows;
+}
+
+function startOut(id){
+  editingOutId = id;
+  renderTable();
+}
+
+async function confirmOut(id){
+  const input = $(`outpicker-${id}`);
+  const val = input ? input.value : nowTimeStr();
+  const e = entries.find(x => x.id === id);
+  if(e){ e.outTime = val || nowTimeStr(); }
+  editingOutId = null;
+  await saveEntries();
+  render();
+}
+
+async function undoOut(id){
+  const e = entries.find(x => x.id === id);
+  if(e){ e.outTime = null; }
+  await saveEntries();
+  render();
+}
+
+async function deleteEntry(id){
+  entries = entries.filter(x => x.id !== id);
+  await saveEntries();
+  render();
+}
+
+document.querySelectorAll(".genderpick button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    currentGender = btn.dataset.g;
+    document.querySelectorAll(".genderpick button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+  });
+});
+
+$("addBtn").addEventListener("click", async () => {
+  const name = $("nameInput").value.trim();
+  if(!name){ $("nameInput").focus(); return; }
+  const entry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    name,
+    gender: currentGender,
+    section: $("sectionInput").value,
+    inTime: $("inTimeInput").value || "08:00",
+    outTime: null
+  };
+  entries.push(entry);
+  await saveEntries();
+  await upsertEmployee(name, currentGender);
+  $("nameInput").value = "";
+  $("nameInput").focus();
+  render();
+});
+
+$("nameInput").addEventListener("input", () => {
+  const match = findEmployeeByName($("nameInput").value);
+  if(match){
+    currentGender = match.gender;
+    document.querySelectorAll(".genderpick button").forEach(b => {
+      b.classList.toggle("active", b.dataset.g === match.gender);
+    });
+  }
+});
+
+$("nameInput").addEventListener("keydown", (e) => { if(e.key === "Enter") $("addBtn").click(); });
+
+$("dateInput").addEventListener("change", async (e) => {
+  currentDate = e.target.value;
+  await loadEntries(currentDate);
+});
+
+$("printBtn").addEventListener("click", () => window.print());
+
+$("csvBtn").addEventListener("click", () => {
+  let csv = "S.No,Section,Male,Female,Total,Man-Hours\n";
+  let sno = 0;
+  SECTIONS.forEach(sec => {
+    const list = entries.filter(e => e.section === sec);
+    const male = list.filter(e => e.gender === "M").length;
+    const female = list.filter(e => e.gender === "F").length;
+    const hours = list.reduce((sum,e) => sum + calcHours(e), 0).toFixed(1);
+    sno += 1;
+    csv += `${sno},"${sec}",${male},${female},${list.length},${hours}\n`;
+  });
+  const blob = new Blob([csv], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `attendance_report_${currentDate}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+function buildTextSummary(){
+  let lines = [`*Finishing Department — Attendance*`, `Date: ${currentDate}`, ""];
+  let grand = {M:0,F:0,total:0};
+  SECTIONS.forEach(sec => {
+    const list = entries.filter(e => e.section === sec);
+    if(list.length === 0) return;
+    const male = list.filter(e => e.gender === "M").length;
+    const female = list.filter(e => e.gender === "F").length;
+    grand.M += male; grand.F += female; grand.total += list.length;
+    lines.push(`*${sec}*: M-${male}, F-${female}, Total-${list.length}`);
+    list.forEach((e, idx) => lines.push(`  ${idx + 1}. ${e.name} (${e.gender}) — IN ${fmtTime(e.inTime)}${e.outTime ? ', OUT ' + fmtTime(e.outTime) : ', Present'}`));
+  });
+  lines.push("");
+  lines.push(`*Grand Total*: Male-${grand.M}, Female-${grand.F}, Total-${grand.total}`);
+  lines.push("");
+  lines.push("_Created By Shivendra with AI | Cont. No. +977 9705397800_");
+  return lines.join("\n");
+}
+
+function buildPDFDoc(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text("Finishing Department - Attendance Register", 14, 15);
+  doc.setFontSize(10);
+  doc.text(`Date: ${currentDate}`, 14, 22);
+
+  let y = 28;
+  SECTIONS.forEach(sec => {
+    const list = entries.filter(e => e.section === sec);
+    if(list.length === 0) return;
+    doc.setFontSize(11);
+    doc.setTextColor(166, 54, 44);
+    doc.text(sec, 14, y);
+    doc.setTextColor(0,0,0);
+    doc.autoTable({
+      startY: y + 2,
+      head: [["S.No","Name","Gender","IN","Status","Hours"]],
+      body: list.map((e, idx) => [
+        idx + 1, e.name, e.gender, fmtTime(e.inTime),
+        e.outTime ? `OUT @ ${fmtTime(e.outTime)}` : "Present",
+        calcHours(e).toFixed(1)
+      ]),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [30,42,56] },
+      margin: { left: 14, right: 14 }
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  });
+
+  if(entries.length === 0){
+    doc.setFontSize(11);
+    doc.text("No entries recorded for this date.", 14, y);
+    y += 10;
+  }
+
+  let grand = {M:0,F:0,total:0,hours:0};
+  let sno = 0;
+  const summaryRows = SECTIONS.map(sec => {
+    const list = entries.filter(e => e.section === sec);
+    if(list.length === 0) return null;
+    sno += 1;
+    const male = list.filter(e => e.gender === "M").length;
+    const female = list.filter(e => e.gender === "F").length;
+    const hours = list.reduce((s,e) => s + calcHours(e), 0);
+    grand.M += male; grand.F += female; grand.total += list.length; grand.hours += hours;
+    return [sno, sec, male, female, list.length, hours.toFixed(1)];
+  }).filter(r => r !== null);
+  summaryRows.push(["", "GRAND TOTAL", grand.M, grand.F, grand.total, grand.hours.toFixed(1)]);
+
+  doc.setFontSize(12);
+  doc.setTextColor(166,54,44);
+  doc.text("Department-wise Summary", 14, y);
+  doc.setTextColor(0,0,0);
+  doc.autoTable({
+    startY: y + 3,
+    head: [["S.No","Section","Male","Female","Total","Man-Hours"]],
+    body: summaryRows,
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [30,42,56] },
+    margin: { left: 14, right: 14 }
+  });
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= pageCount; i++){
+    doc.setPage(i);
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFontSize(8);
+    doc.setTextColor(120,120,120);
+    doc.text("Created By Shivendra with AI  |  Cont. No. +977 9705397800", 14, pageH - 8);
+  }
+
+  return doc;
+}
+
+$("pdfBtn").addEventListener("click", () => {
+  const doc = buildPDFDoc();
+  doc.save(`attendance_${currentDate}.pdf`);
+});
+
+$("waBtn").addEventListener("click", async () => {
+  try{
+    const doc = buildPDFDoc();
+    const blob = doc.output("blob");
+    const file = new File([blob], `attendance_${currentDate}.pdf`, { type: "application/pdf" });
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      await navigator.share({
+        files: [file],
+        title: "Finishing Department Attendance",
+        text: `Attendance for ${currentDate}`
+      });
+      return;
+    }
+  }catch(e){
+    console.warn("Direct file share not available, falling back to text.", e);
+  }
+  const text = buildTextSummary();
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+});
+
+$("addSectionBtn").addEventListener("click", addSection);
+$("newSectionInput").addEventListener("keydown", (e) => { if(e.key === "Enter") addSection(); });
+
+$("openEmpFormBtn").addEventListener("click", () => {
+  resetEmployeeForm();
+  openEmployeeForm();
+});
+$("empCancelBtn").addEventListener("click", closeEmployeeForm);
+
+$("empGenderM").addEventListener("click", () => {
+  empFormGender = "M";
+  $("empGenderM").classList.add("active");
+  $("empGenderF").classList.remove("active");
+});
+$("empGenderF").addEventListener("click", () => {
+  empFormGender = "F";
+  $("empGenderF").classList.add("active");
+  $("empGenderM").classList.remove("active");
+});
+
+$("empPhotoInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const dataUrl = await resizeImageFile(file, 300);
+  const preview = $("empPhotoPreview");
+  preview.src = dataUrl;
+  preview.style.display = "block";
+  preview.setAttribute("data-photo", dataUrl);
+});
+
+$("empIdPhotoInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const dataUrl = await resizeImageFile(file, 500);
+  const preview = $("empIdPhotoPreview");
+  preview.src = dataUrl;
+  preview.style.display = "block";
+  preview.setAttribute("data-photo", dataUrl);
+});
+
+$("empSaveBtn").addEventListener("click", async () => {
+  const name = $("empName").value.trim();
+  if(!name){ $("empName").focus(); return; }
+  const id = $("empFormId").value;
+  const photo = $("empPhotoPreview").getAttribute("data-photo") || null;
+  const idPhoto = $("empIdPhotoPreview").getAttribute("data-photo") || null;
+  const data = {
+    name,
+    gender: empFormGender,
+    photo,
+    idType: $("empIdType").value,
+    idNumber: $("empIdNumber").value.trim(),
+    idPhoto,
+    daySalary: $("empSalary").value ? Number($("empSalary").value) : null,
+    currency: $("empCurrency").value
+  };
+  if(id){
+    const existing = employees.find(e => e.id === id);
+    if(existing) Object.assign(existing, data);
+  }else{
+    const dup = employees.find(e => e.name.toLowerCase() === name.toLowerCase());
+    if(dup){ Object.assign(dup, data); }
+    else{ employees.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2,6), ...data }); }
+  }
+  await saveEmployees();
+  fillEmployeeDatalist();
+  closeEmployeeForm();
+});
+
+$("setupSaveBtn").addEventListener("click", async () => {
+  const username = $("setupUsername").value.trim();
+  const pass = $("setupAdminPass").value;
+  if(!username || !pass){
+    alert("Naam aur password dono bharna zaroori hai.");
+    return;
+  }
+  users.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    username, passwordHash: simpleHash(pass), role: "admin"
+  });
+  await saveUsers();
+  currentRole = "admin";
+  currentUsername = username;
+  await unlockApp();
+});
+
+$("loginBtn").addEventListener("click", async () => {
+  const username = $("loginUsernameInput").value.trim();
+  const pass = $("loginPassInput").value;
+  const account = findUserByUsername(username);
+  if(account && account.passwordHash === simpleHash(pass)){
+    currentRole = account.role;
+    currentUsername = account.username;
+    $("loginError").style.display = "none";
+    $("loginPassInput").value = "";
+    await unlockApp();
+  }else{
+    $("loginError").style.display = "block";
+  }
+});
+
+$("loginPassInput").addEventListener("keydown", (e) => { if(e.key === "Enter") $("loginBtn").click(); });
+$("loginUsernameInput").addEventListener("keydown", (e) => { if(e.key === "Enter") $("loginBtn").click(); });
+
+$("logoutLink").addEventListener("click", (e) => {
+  e.preventDefault();
+  currentRole = null;
+  currentUsername = null;
+  $("appContent").style.display = "none";
+  $("authOverlay").style.display = "flex";
+  $("loginPassInput").value = "";
+  $("loginUsernameInput").value = "";
+  $("loginError").style.display = "none";
+});
+
+// ---------- Manage Users (admin only) ----------
+function renderUserList(){
+  const holder = $("userListHolder");
+  const countEl = $("userCount");
+  if(!holder) return;
+  if(countEl) countEl.textContent = users.length ? `(${users.length})` : "";
+  const sorted = users.slice().sort((a,b) => a.username.localeCompare(b.username));
+  let html = `<table><thead><tr><th>Username</th><th>Role</th><th></th></tr></thead><tbody>`;
+  sorted.forEach(u => {
+    html += `<tr>
+      <td>${u.username}${u.username === currentUsername ? " (aap)" : ""}</td>
+      <td><span class="pill ${u.role === 'admin' ? 'M' : 'F'}">${u.role === 'admin' ? 'Admin' : 'User'}</span></td>
+      <td>
+        <button class="rowbtn" onclick="editUser('${u.id}')">Edit</button>
+        <button class="del" onclick="deleteUser('${u.id}')">✕</button>
+      </td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  holder.innerHTML = html;
+}
+
+function resetUserForm(){
+  $("userFormId").value = "";
+  $("userFormUsername").value = "";
+  $("userFormPassword").value = "";
+  $("userFormRole").value = "user";
+}
+
+$("openUserFormBtn").addEventListener("click", () => {
+  resetUserForm();
+  $("userFormCard").style.display = "block";
+  $("userFormUsername").focus();
+});
+
+function editUser(id){
+  const u = users.find(x => x.id === id);
+  if(!u) return;
+  $("userFormCard").style.display = "block";
+  $("userFormId").value = u.id;
+  $("userFormUsername").value = u.username;
+  $("userFormPassword").value = "";
+  $("userFormRole").value = u.role;
+  $("userFormUsername").focus();
+}
+
+async function deleteUser(id){
+  const target = users.find(u => u.id === id);
+  if(!target) return;
+  const adminCount = users.filter(u => u.role === "admin").length;
+  if(target.role === "admin" && adminCount <= 1){
+    alert("Aakhri Admin account ko delete nahi kar sakte — kam se kam ek Admin hona zaroori hai.");
+    return;
+  }
+  if(!confirm(`"${target.username}" ko delete karna hai?`)) return;
+  users = users.filter(u => u.id !== id);
+  await saveUsers();
+  renderUserList();
+}
+
+$("userSaveBtn").addEventListener("click", async () => {
+  const id = $("userFormId").value;
+  const username = $("userFormUsername").value.trim();
+  const pass = $("userFormPassword").value;
+  const role = $("userFormRole").value;
+  if(!username){ $("userFormUsername").focus(); return; }
+
+  if(id){
+    const existing = users.find(u => u.id === id);
+    if(existing){
+      const dup = findUserByUsername(username);
+      if(dup && dup.id !== id){ alert("Ye username pehle se hai."); return; }
+      if(existing.role === "admin" && role === "user"){
+        const adminCount = users.filter(u => u.role === "admin").length;
+        if(adminCount <= 1){ alert("Aakhri Admin ka role User me nahi badal sakte."); return; }
+      }
+      existing.username = username;
+      existing.role = role;
+      if(pass) existing.passwordHash = simpleHash(pass);
+      if(existing.id === (users.find(u => u.username === currentUsername) || {}).id) currentUsername = username;
+    }
+  }else{
+    if(findUserByUsername(username)){ alert("Ye username pehle se hai."); return; }
+    if(!pass){ alert("Naye user ke liye password zaroori hai."); return; }
+    users.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+      username, passwordHash: simpleHash(pass), role
+    });
+  }
+  await saveUsers();
+  renderUserList();
+  applyRoleVisibility();
+  $("userFormCard").style.display = "none";
+  resetUserForm();
+});
+
+// ---------- Backup & Restore ----------
+async function gatherAllData(){
+  const entriesByDate = {};
+  try{
+    const listRes = await window.storage.list("entries:");
+    const keys = listRes && listRes.keys ? listRes.keys : [];
+    for(const key of keys){
+      try{
+        const res = await window.storage.get(key);
+        if(res && res.value) entriesByDate[key] = JSON.parse(res.value);
+      }catch(e){ /* skip */ }
+    }
+  }catch(e){ /* no entries yet */ }
+
+  let employeesData = [];
+  try{
+    const res = await window.storage.get("employees-master");
+    employeesData = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){ /* none */ }
+
+  let customSections = [];
+  try{
+    const res = await window.storage.get("custom-sections");
+    customSections = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){ /* none */ }
+
+  return {
+    app: "finishing-attendance-backup",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    entries: entriesByDate,
+    employees: employeesData,
+    customSections
+  };
+}
+
+$("backupBtn").addEventListener("click", async () => {
+  const data = await gatherAllData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = `attendance_backup_${stamp}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+$("restoreBtn").addEventListener("click", () => $("restoreFileInput").click());
+
+$("restoreFileInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if(!data || data.app !== "finishing-attendance-backup"){
+      alert("Ye file valid backup nahi hai.");
+      return;
+    }
+    const dateCount = Object.keys(data.entries || {}).length;
+    const empCount = (data.employees || []).length;
+    const confirmMsg = `Backup me ${dateCount} din ki attendance aur ${empCount} employees hain.\nYe maujooda data ko OVERWRITE kar dega. Aage badhna hai?`;
+    if(!confirm(confirmMsg)) return;
+
+    for(const [key, value] of Object.entries(data.entries || {})){
+      await window.storage.set(key, JSON.stringify(value));
+    }
+    if(data.employees) await window.storage.set("employees-master", JSON.stringify(data.employees));
+    if(data.customSections) await window.storage.set("custom-sections", JSON.stringify(data.customSections));
+
+    await loadCustomSections();
+    await loadEmployees();
+    fillSectionDropdown();
+    await loadEntries(currentDate);
+    alert("Backup restore ho gaya!");
+  }catch(err){
+    alert("Restore me error aayi — file check kar lijiye.");
+    console.error(err);
+  }finally{
+    e.target.value = "";
+  }
+});
+
+// ---------- Weekly Report (Employee-wise / Section-wise / Date-wise) ----------
+let weeklyData = null; // { byDate, bySectionMap, byEmployeeMap, startDate, endDate }
+
+function dateStrAddDays(dateStr, days){
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0,10);
+}
+
+async function fetchEntriesInRange(startDate, endDate){
+  const result = {};
+  let cursor = startDate;
+  let guard = 0;
+  while(cursor <= endDate && guard < 400){
+    try{
+      const res = await window.storage.get(`entries:${cursor}`);
+      if(res && res.value){
+        const list = JSON.parse(res.value);
+        if(list.length > 0) result[cursor] = list;
+      }
+    }catch(e){ /* no data for this date */ }
+    cursor = dateStrAddDays(cursor, 1);
+    guard++;
+  }
+  return result;
+}
+
+function buildWeeklyAggregates(entriesByDate){
+  const byDate = [];
+  const bySectionMap = {};
+  const byEmployeeMap = {};
+
+  Object.keys(entriesByDate).sort().forEach(date => {
+    const list = entriesByDate[date];
+    let male = 0, female = 0, hours = 0;
+    list.forEach(e => {
+      const h = calcHours(e);
+      if(e.gender === "M") male++; else female++;
+      hours += h;
+
+      if(!bySectionMap[e.section]) bySectionMap[e.section] = { male:0, female:0, total:0, hours:0 };
+      const sAgg = bySectionMap[e.section];
+      if(e.gender === "M") sAgg.male++; else sAgg.female++;
+      sAgg.total++; sAgg.hours += h;
+
+      const key = e.name.trim().toLowerCase();
+      if(!byEmployeeMap[key]) byEmployeeMap[key] = { name: e.name, gender: e.gender, days: new Set(), hours: 0, sections: new Set() };
+      const emp = byEmployeeMap[key];
+      emp.days.add(date);
+      emp.hours += h;
+      emp.sections.add(e.section);
+    });
+    byDate.push({ date, male, female, total: list.length, hours });
+  });
+
+  return { byDate, bySectionMap, byEmployeeMap };
+}
+
+function renderWeeklyReport(){
+  const holder = $("weeklyReportHolder");
+  const { byDate, bySectionMap, byEmployeeMap } = weeklyData;
+
+  if(byDate.length === 0){
+    holder.innerHTML = `<div class="empty">Is date range me koi attendance data nahi mila.</div>`;
+    $("weeklyActions").style.display = "none";
+    return;
+  }
+
+  let html = "";
+
+  // Date-wise
+  html += `<h3 style="font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--brass); margin:14px 0 8px;">Date-wise</h3>`;
+  html += `<table><thead><tr><th>Date</th><th>Male</th><th>Female</th><th>Total</th><th>Man-Hours</th></tr></thead><tbody>`;
+  let gd = { male:0, female:0, total:0, hours:0 };
+  byDate.forEach(row => {
+    gd.male += row.male; gd.female += row.female; gd.total += row.total; gd.hours += row.hours;
+    html += `<tr><td>${row.date}</td><td>${row.male}</td><td>${row.female}</td><td>${row.total}</td><td>${row.hours.toFixed(1)}</td></tr>`;
+  });
+  html += `<tr class="section-head"><td>TOTAL</td><td>${gd.male}</td><td>${gd.female}</td><td>${gd.total}</td><td>${gd.hours.toFixed(1)}</td></tr>`;
+  html += `</tbody></table>`;
+
+  // Section-wise
+  html += `<h3 style="font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--brass); margin:18px 0 8px;">Section-wise</h3>`;
+  html += `<table><thead><tr><th>S.No</th><th>Section</th><th>Male</th><th>Female</th><th>Total</th><th>Man-Hours</th></tr></thead><tbody>`;
+  const sectionKeys = Object.keys(bySectionMap).sort((a,b) => SECTIONS.indexOf(a) - SECTIONS.indexOf(b));
+  let gs = { male:0, female:0, total:0, hours:0 };
+  sectionKeys.forEach((sec, idx) => {
+    const s = bySectionMap[sec];
+    gs.male += s.male; gs.female += s.female; gs.total += s.total; gs.hours += s.hours;
+    html += `<tr><td>${idx+1}</td><td>${sec}</td><td>${s.male}</td><td>${s.female}</td><td>${s.total}</td><td>${s.hours.toFixed(1)}</td></tr>`;
+  });
+  html += `<tr class="section-head"><td></td><td>TOTAL</td><td>${gs.male}</td><td>${gs.female}</td><td>${gs.total}</td><td>${gs.hours.toFixed(1)}</td></tr>`;
+  html += `</tbody></table>`;
+
+  // Employee-wise
+  html += `<h3 style="font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--brass); margin:18px 0 8px;">Employee-wise</h3>`;
+  html += `<table><thead><tr><th>S.No</th><th>Name</th><th>Gender</th><th>Days Present</th><th>Total Hours</th><th>Sections Worked</th></tr></thead><tbody>`;
+  const employeeList = Object.values(byEmployeeMap).sort((a,b) => a.name.localeCompare(b.name));
+  employeeList.forEach((emp, idx) => {
+    html += `<tr><td>${idx+1}</td><td>${emp.name}</td><td><span class="pill ${emp.gender}">${emp.gender}</span></td><td>${emp.days.size}</td><td>${emp.hours.toFixed(1)}</td><td>${Array.from(emp.sections).join(", ")}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+
+  holder.innerHTML = html;
+  $("weeklyActions").style.display = "flex";
+}
+
+$("genWeeklyBtn").addEventListener("click", async () => {
+  const startDate = $("weekStartInput").value;
+  const endDate = $("weekEndInput").value;
+  if(!startDate || !endDate || startDate > endDate){
+    alert("Sahi date range chuniye (From Date, To Date se pehle ya barabar honi chahiye).");
+    return;
+  }
+  $("weeklyReportHolder").innerHTML = `<div class="empty">Report taiyar ho rahi hai…</div>`;
+  const entriesByDate = await fetchEntriesInRange(startDate, endDate);
+  weeklyData = { ...buildWeeklyAggregates(entriesByDate), startDate, endDate };
+  renderWeeklyReport();
+});
+
+function buildWeeklyPDFDoc(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const { byDate, bySectionMap, byEmployeeMap, startDate, endDate } = weeklyData;
+
+  doc.setFontSize(14);
+  doc.text("Finishing Department - Weekly Attendance Report", 14, 15);
+  doc.setFontSize(10);
+  doc.text(`Period: ${startDate} to ${endDate}`, 14, 22);
+
+  let y = 28;
+  doc.setFontSize(11); doc.setTextColor(166,54,44); doc.text("Date-wise", 14, y); doc.setTextColor(0,0,0);
+  doc.autoTable({
+    startY: y+2,
+    head: [["Date","Male","Female","Total","Man-Hours"]],
+    body: byDate.map(r => [r.date, r.male, r.female, r.total, r.hours.toFixed(1)]),
+    styles: { fontSize: 9 }, headStyles: { fillColor: [30,42,56] }, margin: { left:14, right:14 }
+  });
+  y = doc.lastAutoTable.finalY + 8;
+
+  const sectionKeys = Object.keys(bySectionMap).sort((a,b) => SECTIONS.indexOf(a) - SECTIONS.indexOf(b));
+  doc.setFontSize(11); doc.setTextColor(166,54,44); doc.text("Section-wise", 14, y); doc.setTextColor(0,0,0);
+  doc.autoTable({
+    startY: y+2,
+    head: [["S.No","Section","Male","Female","Total","Man-Hours"]],
+    body: sectionKeys.map((sec, idx) => {
+      const s = bySectionMap[sec];
+      return [idx+1, sec, s.male, s.female, s.total, s.hours.toFixed(1)];
+    }),
+    styles: { fontSize: 9 }, headStyles: { fillColor: [30,42,56] }, margin: { left:14, right:14 }
+  });
+  y = doc.lastAutoTable.finalY + 8;
+
+  const employeeList = Object.values(byEmployeeMap).sort((a,b) => a.name.localeCompare(b.name));
+  if(y > 250){ doc.addPage(); y = 15; }
+  doc.setFontSize(11); doc.setTextColor(166,54,44); doc.text("Employee-wise", 14, y); doc.setTextColor(0,0,0);
+  doc.autoTable({
+    startY: y+2,
+    head: [["S.No","Name","Gender","Days Present","Total Hours","Sections Worked"]],
+    body: employeeList.map((emp, idx) => [idx+1, emp.name, emp.gender, emp.days.size, emp.hours.toFixed(1), Array.from(emp.sections).join(", ")]),
+    styles: { fontSize: 8 }, headStyles: { fillColor: [30,42,56] }, margin: { left:14, right:14 }
+  });
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= pageCount; i++){
+    doc.setPage(i);
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFontSize(8); doc.setTextColor(120,120,120);
+    doc.text("Created By Shivendra with AI  |  Cont. No. +977 9705397800", 14, pageH - 8);
+  }
+  return doc;
+}
+
+$("weeklyPdfBtn").addEventListener("click", () => {
+  if(!weeklyData) return;
+  const doc = buildWeeklyPDFDoc();
+  doc.save(`weekly_report_${weeklyData.startDate}_to_${weeklyData.endDate}.pdf`);
+});
+
+$("weeklyWaBtn").addEventListener("click", async () => {
+  if(!weeklyData) return;
+  try{
+    const doc = buildWeeklyPDFDoc();
+    const blob = doc.output("blob");
+    const file = new File([blob], `weekly_report_${weeklyData.startDate}_to_${weeklyData.endDate}.pdf`, { type: "application/pdf" });
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      await navigator.share({ files: [file], title: "Weekly Attendance Report", text: `Weekly report: ${weeklyData.startDate} to ${weeklyData.endDate}` });
+      return;
+    }
+  }catch(e){
+    console.warn("Direct file share not available, falling back to text.", e);
+  }
+  const { byDate, bySectionMap } = weeklyData;
+  let lines = [`*Weekly Attendance Report*`, `Period: ${weeklyData.startDate} to ${weeklyData.endDate}`, ""];
+  const sectionKeys = Object.keys(bySectionMap).sort((a,b) => SECTIONS.indexOf(a) - SECTIONS.indexOf(b));
+  sectionKeys.forEach(sec => {
+    const s = bySectionMap[sec];
+    lines.push(`*${sec}*: M-${s.male}, F-${s.female}, Total-${s.total}, Hrs-${s.hours.toFixed(1)}`);
+  });
+  lines.push("");
+  lines.push("_Created By Shivendra with AI | Cont. No. +977 9705397800_");
+  window.open(`https://wa.me/?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
+});
+
+(async function init(){
+  await initAuth();
+})();
+</script>
+</body>
+</html>
